@@ -48,17 +48,17 @@ LOCAL = True # Is the app running on a local device (Windows file system) or not
 CONF_THRESHOLD = 0.5 # Filter useless results/make the model output only very confident results
 
 if LOCAL:
-    LoRA_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\trained_LoRA.pth"
-    ADAPTERS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\trained_adapters.pth"
-    END_HEAD_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\trained_end_head.pth"
-    START_HEAD_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\trained_start_head.pth"
-    IS_ANSWERABLE_HEAD_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\trained_is_answerable_head.pth"
+    LoRA_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\models\\trained_LoRA.pth"
+    ADAPTERS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\models\\trained_adapters.pth"
+    END_HEAD_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\models\\trained_end_head.pth"
+    START_HEAD_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\models\\trained_start_head.pth"
+    IS_ANSWERABLE_HEAD_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\models\\trained_is_answerable_head.pth"
 else:
-    LoRA_PATH = "./trained_LoRA.pth"
-    ADAPTERS_PATH = "./trained_adapters.pth"
-    END_HEAD_PATH = "./trained_end_head.pth"
-    START_HEAD_PATH = "./trained_start_head.pth"
-    IS_ANSWERABLE_HEAD_PATH = "./trained_is_answerable_head.pth"
+    LoRA_PATH = "./models/trained_LoRA.pth"
+    ADAPTERS_PATH = "./models/trained_adapters.pth"
+    END_HEAD_PATH = "./models/trained_end_head.pth"
+    START_HEAD_PATH = "./models/trained_start_head.pth"
+    IS_ANSWERABLE_HEAD_PATH = "./models/trained_is_answerable_head.pth"
 
 class LoRA(nn.Module):
     def __init__(self, linear, rank, alpha):
