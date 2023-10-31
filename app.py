@@ -66,6 +66,10 @@ def switch_modules(m):
 st.title("Open Domain Question Answerer")
 question = st.text_area("Query the model!").strip()
 TOP_K = st.slider(label="Query top n Wikipedia articles matching query", min_value=1, max_value=5, value=1)
+search_type = st.selectbox(
+    'Query Method?',
+    ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base)'))
+
 
 if st.button('Run Query'):
     if len(question) != 0:
@@ -75,23 +79,48 @@ if st.button('Run Query'):
         question_tokenized = tokenizer(question + tokenizer.sep_token)
         context_vecs = []
 
-        # Use STS model to search for related articles
-        MODULE_NUM = 1
-        model.apply(switch_modules)
-        
-        question_tokenized_no_sep = tokenizer(question, padding="max_length", max_length=256, truncation=True)
+        if search_type == 'Closed Domain (More Accurate)':
+            # Use STS model to search for related articles
+            MODULE_NUM = 1
+            model.apply(switch_modules)
+            
+            question_tokenized_no_sep = tokenizer(question, padding="max_length", max_length=256, truncation=True)
 
-        A_ids = torch.tensor(question_tokenized_no_sep["input_ids"], device=device).unsqueeze(dim=0)
-        A_masks = torch.tensor(question_tokenized_no_sep["attention_mask"], device=device).unsqueeze(dim=0)
+            A_ids = torch.tensor(question_tokenized_no_sep["input_ids"], device=device).unsqueeze(dim=0)
+            A_masks = torch.tensor(question_tokenized_no_sep["attention_mask"], device=device).unsqueeze(dim=0)
 
-        with torch.no_grad():
-            out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
-            A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
-            A_norm = nn.functional.normalize(A_embeds)
+            with torch.no_grad():
+                out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
+                A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
+                A_norm = nn.functional.normalize(A_embeds)
 
-        sim = (embeds @ A_norm.T).squeeze()
-        top_articles = [topics[x] for x in torch.topk(sim, TOP_K).indices]
+            sim = (embeds @ A_norm.T).squeeze()
+            top_articles = [topics[x] for x in torch.topk(sim, TOP_K).indices]
+        else:
+            # Query Wikipedia for related articles first, then use STS model to find most relevant articles
+            wiki_query = wikipedia.search(question, results=500)
+            a = tokenizer(wiki_query, padding="max_length", max_length=32, truncation=True)
+            A_ids = torch.tensor(a["input_ids"], device=device)
+            A_masks = torch.tensor(a["attention_mask"], device=device)
 
+            with torch.no_grad():
+                out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
+                A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
+                wiki_query_embeds = nn.functional.normalize(A_embeds)
+
+            # Use STS model to filter results
+            a = tokenizer(question, padding="max_length", max_length=256, truncation=True)
+
+            A_ids = torch.tensor(a["input_ids"], device=device).unsqueeze(dim=0)
+            A_masks = torch.tensor(a["attention_mask"], device=device).unsqueeze(dim=0)
+
+            with torch.no_grad():
+                out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
+                A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
+                question_embeds = nn.functional.normalize(A_embeds)
+
+            sim = (embeds @ question_embeds.T).squeeze()
+            top_articles = [wiki_query[x] for x in torch.topk(sim, TOP_K).indices]
         # Fetch Wikipedia articles
         for title in top_articles:
             for matched in wikipedia.search(title, results=1):
