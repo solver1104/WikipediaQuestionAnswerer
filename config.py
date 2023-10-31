@@ -1,3 +1,5 @@
+import torch
+
 RANK = 16
 ALPHA = 16
 HEAD_BIAS = True
@@ -6,8 +8,8 @@ MAX_LEN = 512 # Maximum token length for RoBERTa
 EMB_SZ = 1024 # Embedding dimension for RoBERTa
 OUT_EMB_SZ = 512
 SEED = 13 # Seed for DataLoader generators
-device = "cpu" # Run on CPU
-LOCAL = True # Is the app running on a local device (Windows file system) or not
+device = "cuda" if torch.cuda.is_available() else "cpu" # Check if GPU available
+LOCAL = False # Is the app running on a local device (Windows file system) or not
 CONF_THRESHOLD = 0.5 # Filter useless results/make the model output only very confident results
 
 def change_module_num(num):
