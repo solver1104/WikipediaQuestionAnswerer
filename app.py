@@ -71,8 +71,8 @@ with st.sidebar:
     st.caption("MiniOracle is an open domain Question Answer language model. It can accurately respond to a variety of trivia style questions (although it struggles to answer more open-ended questions without a definitive answer).")
     st.header("Errors")
     st.caption("If errors occur, try refreshing the app. Otherwise, please contact me (see below).")
-    st.header("Technical Details")
-    st.caption("MiniOracle comprises of a semantic search model and an extractive question answering model. The semantic search model finds Wikipedia articles that act as context for the question answering model to answer the query with. Both models are finetuned from the RoBERTa-LARGE base model. Importantly, since this app isn't just calling an API endpoint to fetch model predictions from a remote server, and instead needs to store both large models and intermediate computations produced during inferencing on the Streamlit Community Cloud servers, memory occupied by the model weights and inferencing must be judiciously reduced to fit within the 1GB RAM limits. To reduce memory usage for storing the two models (both with ~370M parameters), weight sharing is employed, dramatically reducing the storage cost. Model quantization is also used to reduce inference memory/runtime costs. For more information, see the source code repository.")
+    with st.expander("Technical Details"):
+        st.caption("MiniOracle comprises of a semantic search model and an extractive question answering model. The semantic search model finds Wikipedia articles that act as context for the question answering model to answer the query with. Both models are finetuned from the RoBERTa-LARGE base model. Importantly, since this app isn't just calling an API endpoint to fetch model predictions from a remote server, and instead needs to store both large models and intermediate computations produced during inferencing on the Streamlit Community Cloud servers, memory occupied by the model weights and inferencing must be judiciously reduced to fit within the 1GB RAM limits. To reduce memory usage for storing the two models (both with ~370M parameters), weight sharing is employed, dramatically reducing the storage cost. Model quantization is also used to reduce inference memory/runtime costs. For more information, see the source code repository.")
     st.link_button("Source Code", "https://github.com/solver1104/WikipediaQuestionAnswerer")
     st.divider()
     st.subheader("About the Author")
@@ -97,16 +97,14 @@ if st.button('Submit Query'):
         A_masks = torch.tensor(question_tokenized_no_sep["attention_mask"], device=device).unsqueeze(dim=0)
 
         with torch.no_grad():
-            with torch.autocast(device_type=device, dtype=torch.bfloat16):
-                out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
-                A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
-                question_embeds = nn.functional.normalize(A_embeds)
+            out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
+            A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
+            question_embeds = nn.functional.normalize(A_embeds)
 
 
         if search_method == 'Closed Domain (More Accurate)':
-            with torch.autocast(device_type=device, dtype=torch.bfloat16):
-                # Use STS model to search for related articles
-                sim = (embeds @ question_embeds.T).squeeze()
+            # Use STS model to search for related articles
+            sim = (embeds @ question_embeds.T).squeeze()
             top_articles = [topics[x] for x in torch.topk(sim, TOP_K).indices]
         else:
             # Query Wikipedia for related articles first, then use STS model to find most relevant articles
@@ -116,13 +114,12 @@ if st.button('Submit Query'):
             wiki_masks = torch.tensor(wiki_query["attention_mask"], device=device)
 
             with torch.no_grad():
-                with torch.autocast(device_type=device, dtype=torch.bfloat16):
-                    out_wiki = model(input_ids=wiki_ids, attention_mask=wiki_masks).last_hidden_state
-                    wiki_embeds = output_head(out_wiki[:, 0]).squeeze().unsqueeze(dim=0)
-                    wiki_query_embeds = nn.functional.normalize(wiki_embeds)
+                out_wiki = model(input_ids=wiki_ids, attention_mask=wiki_masks).last_hidden_state
+                wiki_embeds = output_head(out_wiki[:, 0]).squeeze().unsqueeze(dim=0)
+                wiki_query_embeds = nn.functional.normalize(wiki_embeds)
 
-                    # Use STS model to filter results
-                    sim = (wiki_query_embeds @ question_embeds.T).squeeze()
+                # Use STS model to filter results
+                sim = (wiki_query_embeds @ question_embeds.T).squeeze()
             top_articles = [wiki_retrieve[x] for x in torch.topk(sim, TOP_K).indices]
         
         # Fetch Wikipedia articles
@@ -161,11 +158,10 @@ if st.button('Submit Query'):
             mask = torch.ones_like(ids)
 
             with torch.no_grad():
-                with torch.autocast(device_type=device, dtype=torch.bfloat16):
-                    out = model(input_ids=ids, attention_mask=mask).last_hidden_state
-                    start_preds = start_head(out).squeeze()
-                    end_preds = end_head(out).squeeze()
-                    is_answerable_preds = is_answerable_head(out[:, 0]).squeeze()
+                out = model(input_ids=ids, attention_mask=mask).last_hidden_state
+                start_preds = start_head(out).squeeze()
+                end_preds = end_head(out).squeeze()
+                is_answerable_preds = is_answerable_head(out[:, 0]).squeeze()
 
             start_preds = torch.softmax(start_preds, dim=0)
             end_preds = torch.softmax(end_preds, dim=0)
