@@ -64,9 +64,9 @@ def switch_modules(m):
 ################### WEBAPP ###################        
 st.title("MiniOracle Demo")
 question = st.text_area("Question")
-TOP_K = st.slider(label="Number of Articles to Search", min_value=1, max_value=5, value=1)
+TOP_K = st.slider(label="Number of Articles to Search", min_value=1, max_value=5, value=5)
 CONF_THRESHOLD = st.slider(label="Required Confidence for Answers", min_value=0.0, max_value=1.0, value=0.5, step = 0.1)
-MAX_RESULTS = st.slider(label="Maximum Number of Answers to Predict", min_value=1, max_value=5, value=1)
+MAX_RESULTS = st.slider(label="Maximum Number of Answers to Predict", min_value=1, max_value=5, value=5)
 search_method = st.selectbox('Query Method?', ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base, SLOW)'))
 with st.sidebar:
     st.title("About the app")
