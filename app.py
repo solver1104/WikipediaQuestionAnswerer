@@ -65,6 +65,8 @@ def switch_modules(m):
 st.title("MiniOracle Demo")
 question = st.text_area("Question")
 TOP_K = st.slider(label="Number of Articles to Search", min_value=1, max_value=5, value=1)
+CONF_THRESHOLD = st.slider(label="Required Confidence for Answers", min_value=0.0, max_value=1.0, value=0.5, step = 0.1)
+MAX_RESULTS = st.slider(label="Maximum Number of Answers to Predict", min_value=1, max_value=5, value=1)
 search_method = st.selectbox('Query Method?', ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base, SLOW)'))
 with st.sidebar:
     st.title("About the app")
@@ -151,7 +153,8 @@ if st.button('Submit Query'):
         MODULE_NUM = 0
         model.apply(switch_modules)
         
-        prog = st.progress(0) 
+        prog = st.progress(0)
+        answers_generated = 0
         
         for idx, context in enumerate(split_contexts):
             prog.progress((idx + 1) / len(split_contexts), text="Querying Wikipedia page")
@@ -171,7 +174,9 @@ if st.button('Submit Query'):
             if is_answerable_preds.item() <= 0 and torch.max(start_preds).item() > CONF_THRESHOLD and torch.max(end_preds).item() > CONF_THRESHOLD:
                 st.success("Prediction: " + tokenizer.decode(ids[torch.argmax(start_preds).item() : torch.argmax(end_preds).item() + 1]) + ", Confidence: " + str(round(100 * min(torch.max(start_preds).item(), torch.max(end_preds).item()), 2)) + "%")
                 question_answered = True
-                break
+                answers_generated += 1
+                if answers_generated == MAX_RESULTS:
+                    break
 
         if question_answered:
             st.toast("Inference Complete", icon="💡")
