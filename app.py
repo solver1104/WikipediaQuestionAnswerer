@@ -24,15 +24,8 @@ def load_embeds():
 
 @st.cache_resource
 def load_topics():
-    topics = []
-    
-    # Get all "Vital Article" titles
-    article=wikipedia.page('Wikipedia:Vital articles/List of all articles', auto_suggest=False).content
-    topics = article.replace('\n\n',' · ').split(" · ")[1:]
-
-    # Remove accented characters to make the embedding process better
-    for i in range(len(topics)):
-        topics[i] = unidecode.unidecode(topics[i])
+    with open(STS_TOPICS_PATH, 'r') as f:
+        topics = eval(''.join(f.readlines()))
     return topics
 
 with st.spinner('Loading model components...'):
