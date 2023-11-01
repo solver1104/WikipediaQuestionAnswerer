@@ -32,6 +32,7 @@ def load_embeds():
 def load_topics():
     with open(STS_TOPICS_PATH, 'r') as f:
         topics = eval(''.join(f.readlines()))
+    print(f"{len(topics)} topics")
     return topics
 
 with st.spinner('Loading model components...'):
