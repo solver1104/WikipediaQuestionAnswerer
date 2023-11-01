@@ -24,11 +24,11 @@ def load_model():
 def load_tokenizer():
     return RobertaTokenizer.from_pretrained("roberta-large")
 
-@st.cache_data
+@st.cache_resource
 def load_embeds():
     return torch.load(STS_EMBEDS_PATH, map_location=device)
 
-@st.cache_data
+@st.cache_resource
 def load_topics():
     with open(STS_TOPICS_PATH, 'r') as f:
         topics = eval(''.join(f.readlines()))
