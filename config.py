@@ -10,6 +10,7 @@ OUT_EMB_SZ = 512
 device = "cuda" if torch.cuda.is_available() else "cpu" # Check if GPU available
 LOCAL = False # Is the app running on a local device (Windows file system) or not
 CONF_THRESHOLD = 0.5 # Filter useless results/make the model output only very confident results
+WIKI_SEARCH = 256
 
 if LOCAL:
     QA_LoRA_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\QA_model\\trained_LoRA.pth"

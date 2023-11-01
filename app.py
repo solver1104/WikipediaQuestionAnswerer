@@ -8,8 +8,14 @@ import math
 import multitask_model
 from config import *
 
-################### LOADING ###################
+################### SETUP ###################
+st.set_page_config(
+    page_title='MiniOracle',
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
+################### LOADING ###################
 @st.cache_resource
 def load_model():
     return multitask_model.setup_QA()
@@ -18,11 +24,11 @@ def load_model():
 def load_tokenizer():
     return RobertaTokenizer.from_pretrained("roberta-large")
 
-@st.cache_resource
+@st.cache_data
 def load_embeds():
     return torch.load(STS_EMBEDS_PATH, map_location=device)
 
-@st.cache_resource
+@st.cache_data
 def load_topics():
     with open(STS_TOPICS_PATH, 'r') as f:
         topics = eval(''.join(f.readlines()))
@@ -48,22 +54,36 @@ with st.spinner('Loading model components...'):
     print("Ready for inference")
 
 ################### MODEL UTILS ###################
-
 MODULE_NUM = 0 # Task number to perform
 
 def switch_modules(m):
     if type(m) is multitask_model.LoRA or type(m) is multitask_model.InterOutputAdapter:
         m.selected_module = MODULE_NUM
 
-################### WEBAPP ###################
-st.title("Open Domain Question Answerer")
-question = st.text_area("Query the model!").strip()
-TOP_K = st.slider(label="Query top n Wikipedia articles matching query", min_value=1, max_value=5, value=1)
-search_method = st.selectbox('Query Method?', ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base)'))
+################### WEBAPP ###################        
+st.title("MiniOracle Demo")
+question = st.text_area("Question")
+TOP_K = st.slider(label="Number of Articles to Search", min_value=1, max_value=5, value=1)
+search_method = st.selectbox('Query Method?', ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base, SLOW)'))
+with st.sidebar:
+    st.title("About")
+    st.header("What is MiniOracle?")
+    st.caption("MiniOracle is an open domain Question Answer language model. It can accurately respond to a variety of trivia style questions (although it struggles to answer more open-ended questions without a definitive answer).")
+    st.header("Errors")
+    st.caption("If errors occur, try refreshing the app. Otherwise, please contact me (see below).")
+    st.header("Technical Details")
+    st.caption("MiniOracle comprises of a semantic search model and an extractive question answering model. The semantic search model finds Wikipedia articles that act as context for the question answering model to answer the query with. Both models are finetuned from the RoBERTa-LARGE base model. Importantly, since this app isn't just calling an API endpoint to fetch model predictions from a remote server, and instead needs to store both large models and intermediate computations produced during inferencing on the Streamlit Community Cloud servers, memory occupied by the model weights and inferencing must be judiciously reduced to fit within the 1GB RAM limits. To reduce memory usage for storing the two models (both with ~370M parameters), weight sharing is employed, dramatically reducing the storage cost. Model quantization is also used to reduce inference memory/runtime costs. For more information, see the source code repository.")
+    st.link_button("Source Code", "https://github.com/solver1104/WikipediaQuestionAnswerer")
+    st.divider()
+    st.subheader("About the Author")
+    st.write("Other Projects: [GitHub](https://github.com/solver1104)")
+    st.write("Contact me: [Email](mailto:s1104@uw.edu)")
+    
 
-
-if st.button('Run Query'):
+################### QUERY ###################
+if st.button('Submit Query'):
     if len(question) != 0:
+        question = unidecode.unidecode(question.strip())
         question_answered = False
         
         st.toast("Starting query", icon="💡")
@@ -77,29 +97,32 @@ if st.button('Run Query'):
         A_masks = torch.tensor(question_tokenized_no_sep["attention_mask"], device=device).unsqueeze(dim=0)
 
         with torch.no_grad():
-            out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
-            A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
-            question_embeds = nn.functional.normalize(A_embeds)
+            with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
+                A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
+                question_embeds = nn.functional.normalize(A_embeds)
 
 
         if search_method == 'Closed Domain (More Accurate)':
-            # Use STS model to search for related articles
-            sim = (embeds @ question_embeds.T).squeeze()
+            with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                # Use STS model to search for related articles
+                sim = (embeds @ question_embeds.T).squeeze()
             top_articles = [topics[x] for x in torch.topk(sim, TOP_K).indices]
         else:
             # Query Wikipedia for related articles first, then use STS model to find most relevant articles
-            wiki_retrieve = wikipedia.search(question, results=500)
+            wiki_retrieve = wikipedia.search(question, results=WIKI_SEARCH)
             wiki_query = tokenizer(wiki_retrieve, padding="max_length", max_length=16, truncation=True)
             wiki_ids = torch.tensor(wiki_query["input_ids"], device=device)
             wiki_masks = torch.tensor(wiki_query["attention_mask"], device=device)
 
             with torch.no_grad():
-                out_wiki = model(input_ids=wiki_ids, attention_mask=wiki_masks).last_hidden_state
-                wiki_embeds = output_head(out_wiki[:, 0]).squeeze().unsqueeze(dim=0)
-                wiki_query_embeds = nn.functional.normalize(wiki_embeds)
+                with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                    out_wiki = model(input_ids=wiki_ids, attention_mask=wiki_masks).last_hidden_state
+                    wiki_embeds = output_head(out_wiki[:, 0]).squeeze().unsqueeze(dim=0)
+                    wiki_query_embeds = nn.functional.normalize(wiki_embeds)
 
-            # Use STS model to filter results
-            sim = (wiki_query_embeds @ question_embeds.T).squeeze()
+                    # Use STS model to filter results
+                    sim = (wiki_query_embeds @ question_embeds.T).squeeze()
             top_articles = [wiki_retrieve[x] for x in torch.topk(sim, TOP_K).indices]
         
         # Fetch Wikipedia articles
@@ -107,7 +130,7 @@ if st.button('Run Query'):
             for matched in wikipedia.search(title, results=1):
                 st.toast("Searching Wikipedia page: " + title, icon="✅")
                 try:
-                    context_vecs.append(wikipedia.page(matched, auto_suggest=False).content)
+                    context_vecs.append(unidecode.unidecode(wikipedia.page(matched, auto_suggest=False).content))
                 except:
                     continue
 
@@ -138,17 +161,18 @@ if st.button('Run Query'):
             mask = torch.ones_like(ids)
 
             with torch.no_grad():
-                out = model(input_ids=ids, attention_mask=mask).last_hidden_state
-                start_preds = start_head(out).squeeze()
-                end_preds = end_head(out).squeeze()
-                is_answerable_preds = is_answerable_head(out[:, 0]).squeeze()
+                with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                    out = model(input_ids=ids, attention_mask=mask).last_hidden_state
+                    start_preds = start_head(out).squeeze()
+                    end_preds = end_head(out).squeeze()
+                    is_answerable_preds = is_answerable_head(out[:, 0]).squeeze()
 
             start_preds = torch.softmax(start_preds, dim=0)
             end_preds = torch.softmax(end_preds, dim=0)
             ids = ids.squeeze()
 
             if is_answerable_preds.item() <= 0 and torch.max(start_preds).item() > CONF_THRESHOLD and torch.max(end_preds).item() > CONF_THRESHOLD:
-                st.success("Prediction: " + tokenizer.decode(ids[torch.argmax(start_preds).item() : torch.argmax(end_preds).item() + 1]) + "        Confidence: " + str(min(torch.max(start_preds).item(), torch.max(end_preds).item())))
+                st.success("Prediction: " + tokenizer.decode(ids[torch.argmax(start_preds).item() : torch.argmax(end_preds).item() + 1]) + ", Confidence: " + str(round(100 * min(torch.max(start_preds).item(), torch.max(end_preds).item()), 2)) + "%")
                 question_answered = True
                 break
 
@@ -159,3 +183,4 @@ if st.button('Run Query'):
     else:
         e = RuntimeError('Type a question before submitting a query!')
         st.exception(e)
+
