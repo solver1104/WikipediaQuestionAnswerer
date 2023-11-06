@@ -34,3 +34,4 @@ else:
     STS_OUTPUT_HEAD_PATH = "./STS_model/trained_output_head.pth"
     STS_EMBEDS_PATH = "./STS_model/embeds.pth"
     STS_TOPICS_PATH = "./STS_model/topics.txt"
+    CLUSTER_PATH = "./embeds/centers.npy"
