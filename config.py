@@ -22,6 +22,7 @@ if LOCAL:
     STS_OUTPUT_HEAD_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\STS_model\\trained_output_head.pth"
     STS_EMBEDS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\STS_model\\embeds.pth"
     STS_TOPICS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\STS_model\\topics.txt"
+    CLUSTER_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\embeds\\centers.npy"
 else:
     QA_LoRA_PATH = "./QA_model/trained_LoRA.pth"
     QA_ADAPTERS_PATH = "./QA_model/trained_adapters.pth"

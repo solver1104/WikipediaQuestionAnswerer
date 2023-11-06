@@ -35,6 +35,14 @@ def load_topics():
     print(f"{len(topics)} topics")
     return topics
 
+@st.cache_resource
+def load_clusters():
+    clusters = torch.tensor(np.load(CLUSTER_PATH), device=device, dtype=torch.float32)
+    return clusters
+
+def load_cluster_details():
+    pass
+
 with st.spinner('Loading model components...'):
     topics = load_topics()
     print("Topics loaded")
@@ -44,6 +52,9 @@ with st.spinner('Loading model components...'):
     
     tokenizer = load_tokenizer()
     print("Tokenizer loaded")
+
+    clusters = load_clusters()
+    print("Embedding clusters loaded")
 
     model, start_head, end_head, is_answerable_head, output_head = load_model()
     model.eval()
@@ -67,7 +78,7 @@ question = st.text_area("Question")
 TOP_K = st.slider(label="Number of Articles to Search", min_value=1, max_value=5, value=5)
 CONF_THRESHOLD = st.slider(label="Required Confidence for Answers", min_value=0.0, max_value=1.0, value=0.5, step = 0.1)
 MAX_RESULTS = st.slider(label="Maximum Number of Answers to Predict", min_value=1, max_value=5, value=5)
-search_method = st.selectbox('Query Method?', ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base, SLOW)'))
+search_method = st.selectbox('Query Method?', ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base, SLOW)', 'Cluster Search (Open Domain, Faster)'))
 with st.sidebar:
     st.title("About the app")
     st.header("What is MiniOracle?")
@@ -109,7 +120,7 @@ if st.button('Submit Query'):
             # Use STS model to search for related articles
             sim = (embeds @ question_embeds.T).squeeze()
             top_articles = [topics[x] for x in torch.topk(sim, TOP_K).indices]
-        else:
+        elif search_method == 'Open Domain (Wider Knowledge Base, SLOW)':
             # Query Wikipedia for related articles first, then use STS model to find most relevant articles
             wiki_retrieve = wikipedia.search(question, results=WIKI_SEARCH)
             wiki_query = tokenizer(wiki_retrieve, padding="max_length", max_length=16, truncation=True)
@@ -124,7 +135,16 @@ if st.button('Submit Query'):
                 # Use STS model to filter results
                 sim = (wiki_query_embeds @ question_embeds.T).squeeze()
             top_articles = [wiki_retrieve[x] for x in torch.topk(sim, TOP_K).indices]
-        
+        else:
+            # Use embedding search to find related articles quickly
+            cluster_sim = (clusters @ question_embeds.T).squeeze()
+            cluster_to_search = torch.argmax(cluster_sim).item()
+            cluster_embeds, cluster_topics = load_cluster_details(cluster_to_search)
+
+            sim = (cluster_embeds @ question_embeds.T).squeeze()
+            top_articles = [cluster_topics[x] for x in torch.topk(sim, TOP_K).indices]
+            
+                
         # Fetch Wikipedia articles
         for title in top_articles:
             for matched in wikipedia.search(title, results=1):
