@@ -5,6 +5,7 @@ from transformers import RobertaModel, RobertaTokenizer
 import wikipedia
 import unidecode
 import math
+import numpy as np
 import multitask_model
 from config import *
 
