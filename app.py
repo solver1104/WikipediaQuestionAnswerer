@@ -41,8 +41,16 @@ def load_clusters():
     clusters = torch.tensor(np.load(CLUSTER_PATH), device=device, dtype=torch.float32)
     return clusters
 
-def load_cluster_details():
-    pass
+def load_cluster_details(x):
+    embeds = torch.load(CLUSTER_EMBEDS_PATH + str(x) + ".pth", map_location=device)
+    embeds = embeds.float()
+    topics = []
+
+    with open(CLUSTER_TOPICS_PATH + str(x) + ".pth", "r", encoding="utf8") as f:
+        for i in f.readlines():
+            topics.append(unidecode.unidecode(i.strip()))
+    
+    return embeds, topics
 
 with st.spinner('Loading model components...'):
     topics = load_topics()
@@ -143,7 +151,7 @@ if st.button('Submit Query'):
             cluster_embeds, cluster_topics = load_cluster_details(cluster_to_search)
 
             sim = (cluster_embeds @ question_embeds.T).squeeze()
-            top_articles = [cluster_topics[x] for x in torch.topk(sim, TOP_K).indices]
+            top_articles = [cluster_topics[x].replace("_", " ") for x in torch.topk(sim, TOP_K).indices]
             
                 
         # Fetch Wikipedia articles

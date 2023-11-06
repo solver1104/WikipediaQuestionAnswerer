@@ -8,7 +8,7 @@ MAX_LEN = 512 # Maximum token length for RoBERTa
 EMB_SZ = 1024 # Embedding dimension for RoBERTa
 OUT_EMB_SZ = 512
 device = "cuda" if torch.cuda.is_available() else "cpu" # Check if GPU available
-LOCAL = False # Is the app running on a local device (Windows file system) or not
+LOCAL = True # Is the app running on a local device (Windows file system) or not
 WIKI_SEARCH = 256
 
 if LOCAL:
@@ -24,6 +24,7 @@ if LOCAL:
     STS_TOPICS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\STS_model\\topics.txt"
     CLUSTER_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\embeds\\centers.npy"
     CLUSTER_TOPICS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\embeds\\titles"
+    CLUSTER_EMBEDS_PATH = "C:\\Users\\bohan\\embeds\\shard"
 else:
     QA_LoRA_PATH = "./QA_model/trained_LoRA.pth"
     QA_ADAPTERS_PATH = "./QA_model/trained_adapters.pth"
@@ -37,4 +38,4 @@ else:
     STS_TOPICS_PATH = "./STS_model/topics.txt"
     CLUSTER_PATH = "./embeds/centers.npy"
     CLUSTER_TOPICS_PATH = "./embeds/titles"
-    
+    CLUSTER_EMBEDS_PATH = "Not implemented yet, need to cache embeddings efficiently"
