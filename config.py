@@ -23,6 +23,7 @@ if LOCAL:
     STS_EMBEDS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\STS_model\\embeds.pth"
     STS_TOPICS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\STS_model\\topics.txt"
     CLUSTER_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\embeds\\centers.npy"
+    CLUSTER_TOPICS_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\embeds\\titles"
 else:
     QA_LoRA_PATH = "./QA_model/trained_LoRA.pth"
     QA_ADAPTERS_PATH = "./QA_model/trained_adapters.pth"
@@ -35,3 +36,5 @@ else:
     STS_EMBEDS_PATH = "./STS_model/embeds.pth"
     STS_TOPICS_PATH = "./STS_model/topics.txt"
     CLUSTER_PATH = "./embeds/centers.npy"
+    CLUSTER_TOPICS_PATH = "./embeds/titles"
+    
