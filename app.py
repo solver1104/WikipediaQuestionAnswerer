@@ -84,9 +84,10 @@ def switch_modules(m):
 ################### WEBAPP ###################        
 st.title("MiniOracle Demo")
 question = st.text_area("Question")
-TOP_K = st.slider(label="Number of Articles to Search", min_value=1, max_value=5, value=5)
-CONF_THRESHOLD = st.slider(label="Required Confidence for Answers", min_value=0.0, max_value=1.0, value=0.5, step = 0.1)
-MAX_RESULTS = st.slider(label="Maximum Number of Answers to Predict", min_value=1, max_value=5, value=5)
+with st.expander("Query Hyperparameters"):
+    TOP_K = st.slider(label="Number of Articles to Search", min_value=1, max_value=5, value=5)
+    CONF_THRESHOLD = st.slider(label="Required Confidence for Answers", min_value=0.0, max_value=1.0, value=0.5, step = 0.1)
+    MAX_RESULTS = st.slider(label="Maximum Number of Answers to Predict", min_value=1, max_value=5, value=5)
 search_method = st.selectbox('Query Method?', ('Closed Domain (More Accurate)', 'Open Domain (Wider Knowledge Base, SLOW)', 'Cluster Search (Open Domain, Faster)'))
 with st.sidebar:
     st.title("About the app")
@@ -122,7 +123,7 @@ if st.button('Submit Query'):
         with torch.no_grad():
             out_A = model(input_ids=A_ids, attention_mask=A_masks).last_hidden_state
             A_embeds = output_head(out_A[:, 0]).squeeze().unsqueeze(dim=0)
-            question_embeds = nn.functional.normalize(A_embeds)
+            question_embeds = nn.functional.normalize(A_embeds, dim=-1)
 
 
         if search_method == 'Closed Domain (More Accurate)':
@@ -139,19 +140,24 @@ if st.button('Submit Query'):
             with torch.no_grad():
                 out_wiki = model(input_ids=wiki_ids, attention_mask=wiki_masks).last_hidden_state
                 wiki_embeds = output_head(out_wiki[:, 0]).squeeze().unsqueeze(dim=0)
-                wiki_query_embeds = nn.functional.normalize(wiki_embeds)
+                wiki_query_embeds = nn.functional.normalize(wiki_embeds, dim=-1)
 
                 # Use STS model to filter results
                 sim = (wiki_query_embeds @ question_embeds.T).squeeze()
             top_articles = [wiki_retrieve[x] for x in torch.topk(sim, TOP_K).indices]
         else:
-            # Use embedding search to find related articles quickly
-            cluster_sim = (clusters @ question_embeds.T).squeeze()
-            cluster_to_search = torch.argmax(cluster_sim).item()
-            cluster_embeds, cluster_topics = load_cluster_details(cluster_to_search)
-
-            sim = (cluster_embeds @ question_embeds.T).squeeze()
-            top_articles = [cluster_topics[x].replace("_", " ") for x in torch.topk(sim, TOP_K).indices]
+            # Loop through all embeddings to find most relevant articles (tried searching through clusters, but doesn't perform well,
+            # and this has a comparable latency since matmul is extremely efficient anyways)
+            top_sim = torch.zeros((EMBED_SHARD_NO * TOP_K), device=device)
+            top_names = []
+            
+            for i in range(EMBED_SHARD_NO):
+                cluster_embeds, cluster_topics = load_cluster_details(i)
+                sim = (cluster_embeds @ question_embeds.T).squeeze()
+                top_sim[i * TOP_K : (i + 1) * TOP_K] = torch.topk(sim, TOP_K).values
+                top_names.extend([cluster_topics[x].replace("_", " ") for x in torch.topk(sim, TOP_K).indices])
+                
+            top_articles = [top_names[x] for x in torch.topk(top_sim, TOP_K).indices]
             
                 
         # Fetch Wikipedia articles

@@ -9,7 +9,8 @@ EMB_SZ = 1024 # Embedding dimension for RoBERTa
 OUT_EMB_SZ = 512
 device = "cuda" if torch.cuda.is_available() else "cpu" # Check if GPU available
 LOCAL = True # Is the app running on a local device (Windows file system) or not
-WIKI_SEARCH = 256
+WIKI_SEARCH = 256 # How many Wikipedia ElasticSearch results to return
+EMBED_SHARD_NO = 64 # The full embeddings are split into 64 shards
 
 if LOCAL:
     QA_LoRA_PATH = "C:\\Users\\bohan\\WikipediaQuestionAnswerer\\QA_model\\trained_LoRA.pth"
